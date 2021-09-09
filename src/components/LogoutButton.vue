@@ -1,9 +1,6 @@
 <template>
-  <button
-    class="btn btn-danger btn-block"
-    v-if="$auth.isAuthenticated"
-    @click.prevent="logout"
-  >
+  <button class="btn btn-danger btn-block" @click.prevent="$emit('onClick')">
+    <!-- v-if="$auth.isAuthenticated" -->
     Log Out
   </button>
 </template>

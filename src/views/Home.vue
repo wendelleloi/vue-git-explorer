@@ -2,7 +2,7 @@
   <div class="home">
     <div class="header">
       <h1>GitHub Explorer</h1>
-      <img alt="Vue logo" src="../assets/rocket.svg" />
+      <img alt="GitHub Explorer logo" src="../assets/rocket.svg" />
       <div class="input-search-container">
         <input
           class="form-control"
@@ -10,7 +10,7 @@
           autocapitalize="off"
           :placeholder="typeSearch === 'users' ? 'Usuário' : 'Repositório'"
           v-model="userName"
-          @input="searchGit"
+          @keyup="searchGit"
         />
       </div>
       <div>
@@ -21,30 +21,37 @@
           value="users"
           v-model="typeSearch"
         />
-        <label for="jack">Usuários</label>
+        <label style="margin: 0 20px 0 5px" for="users">Usuários</label>
         <input
           @change="clearData"
           type="radio"
           id="repos"
-          value="repos"
+          value="repositories"
           v-model="typeSearch"
         />
-        <label for="john">Repositórios</label>
-        <!-- <input type="radio" id="orgs" value="orgs" v-model="typeSearch" />
-        <label for="mike">Organizações</label> -->
+        <label style="margin: 0 0 0 5px" for="repos">Repositórios</label>
       </div>
     </div>
     <div class="body">
       <template v-if="isFetchUserLoading">
         <ClipLoader :loading="true" />
       </template>
-      <template v-else-if="!userExist">
+      <template v-else-if="userData.total_count === 0">
         <div class="user-not-found-container">
-          <img src="../assets/no-data.svg" alt="" />
-          <h2>Nenhum usuário encontrado</h2>
+          <img src="../assets/no-data.svg" alt="Nenhum resultado encontrado" />
+          <h2>
+            Nenhum
+            {{ typeSearch === "users" ? "usuário" : "repositório" }} encontrado
+          </h2>
         </div>
       </template>
-      <template v-else-if="userExist && !isUserDataEmpty">
+      <template v-else-if="userData.message">
+        <div class="user-not-found-container">
+          <img src="../assets/cancel.svg" alt="Limite de buscas atingido" />
+          <h2>Limite de buscas foi atingido. Tente novamente mais tarde</h2>
+        </div>
+      </template>
+      <template v-else-if="!isUserDataEmpty">
         <div class="container user-card-container">
           <div class="row">
             <div
@@ -52,29 +59,30 @@
               v-for="user in userData.items"
               :key="user.id"
             >
-              <div class="card">
-                <img
-                  class="card-img-top"
-                  :src="user.avatar_url"
-                  alt="Card image cap"
+              <template v-if="typeSearch === 'users'">
+                <UserList
+                  :user="user"
+                  :followersData="followersData"
+                  :orgsData="orgsData"
+                  :repositoriesData="repositoriesData"
+                  :subscriptionsData="subscriptionsData"
+                  @handleFlowers="handleFlowers"
+                  @handleSubscription="handleSubscription"
+                  @handleOrgs="handleOrgs"
+                  @handleRepositories="handleRepositories"
                 />
-                <div class="card-body">
-                  <h5 class="card-title">{{ user.login }}</h5>
-
-                  <p class="card-text" v-if="user.bio">
-                    {{ user.bio }}
-                  </p>
-                </div>
-                <ul class="list-group list-group-flush">
-                  <li class="list-group-item">Cras justo odio</li>
-                  <li class="list-group-item">Dapibus ac facilisis in</li>
-                  <li class="list-group-item">Vestibulum at eros</li>
-                </ul>
-                <div class="card-body">
-                  <a href="#" class="card-link">Card link</a>
-                  <a href="#" class="card-link">Another link</a>
-                </div>
-              </div>
+              </template>
+              <template v-else>
+                <RepoList
+                  :user="user"
+                  :contributorsData="contributorsData"
+                  :subscriptionsData="subscriptionsRepoData"
+                  :tagsData="tagsData"
+                  @handleSubscribers="handleSubscribers"
+                  @handleContributors="handleContributors"
+                  @handleTags="handleTags"
+                />
+              </template>
             </div>
           </div>
           <paginate
@@ -92,80 +100,135 @@
           >
           </paginate>
         </div>
-        <!-- <div class="user-container">
-          <div class="avatar-container">
-            <img :src="userData.avatar_url" alt="" />
-          </div>
-          <div class="language">
-            <img
-              align="left"
-              :src="`https://github-readme-stats.vercel.app/api/top-langs?username=${userData.name}&show_icons=true&locale=en&layout=compact&title_color=fff&icon_color=00d9ff&text_color=c9d1d9&bg_color=161b22&cache_seconds=3000`"
-              alt="wendelleloi's github stats"
-            />
-          </div>
-        </div> -->
       </template>
-      <template v-else-if="userExist && isUserDataEmpty">
+      <template v-else-if="isUserDataEmpty">
         <div class="user-not-found-container">
-          <img src="../assets/search.svg" alt="" />
+          <img src="../assets/search.svg" alt="Inicie uma busca" />
           <h2>Inicie uma busca</h2>
         </div>
       </template>
     </div>
-    <!-- <HelloWorld msg="Welcome to Your Vue.js App" /> -->
   </div>
 </template>
 
 <script>
 // @ is an alias to /src
-// import HelloWorld from "@/components/HelloWorld.vue";
 import ClipLoader from "vue-spinner/src/ClipLoader.vue";
+import UserList from "../components/UserList.vue";
+import RepoList from "../components/RepoList.vue";
 
 export default {
   name: "Home",
   components: {
-    // HelloWorld,
     ClipLoader,
+    UserList,
+    RepoList,
   },
   data() {
     return {
       userName: "",
       isFetchUserLoading: false,
+      followersData: {
+        followers: [],
+        isLoading: false,
+      },
+      subscriptionsData: {
+        subscriptions: [],
+        isLoading: false,
+      },
+      orgsData: {
+        orgs: [],
+        isLoading: false,
+      },
+      repositoriesData: {
+        repos: [],
+        isLoading: false,
+      },
+      contributorsData: {
+        contributors: [],
+        isLoading: false,
+      },
+      subscriptionsRepoData: {
+        subscriptions: [],
+        isLoading: false,
+      },
+      tagsData: {
+        tags: [],
+        isLoading: false,
+      },
+      ownerData: {
+        owners: [],
+        isLoading: false,
+      },
       pagination: {
         page: 1,
         pageCount: this.totalCountPaginate,
       },
-      userData: {
-        items: [],
-        total_count: 0,
-        incomplete_results: false,
-      },
+      userData: {},
       typeSearch: "users",
+      timer: false,
     };
   },
   methods: {
-    userPaginate(page) {
+    async userPaginate(page) {
       this.isFetchUserLoading = true;
+      let header = {};
+      let authToken = "";
+      const isAuthLogged = await this.$auth.isAuthenticated;
+      if (isAuthLogged) {
+        authToken = await this.$auth.getTokenSilently();
+      }
+
+      if (authToken) {
+        header = {
+          headers: {
+            Authorization: "token" + authToken,
+          },
+        };
+      }
       fetch(
-        `https://api.github.com/search/users?q=${this.userName}&page=${page}`
+        `https://api.github.com/search/${this.typeSearch}?q=${this.userName}&page=${page}`,
+        header
       )
         .then((response) => response.json())
         .then((data) => {
           this.isFetchUserLoading = false;
-          this.userData = data;
           this.pagination.page = page;
+          this.userData = data;
         });
     },
-    searchGit(event) {
+    async searchGit(event) {
+      let header = {};
+      let authToken = "";
+      const isAuthLogged = await this.$auth.isAuthenticated;
+      if (isAuthLogged) {
+        authToken = await this.$auth.getTokenSilently();
+      }
+
+      if (authToken) {
+        header = {
+          headers: {
+            Authorization: "token" + authToken,
+          },
+        };
+      }
+
       const inputData = event.target.value;
       if (inputData.length >= 3) {
         this.isFetchUserLoading = true;
-        fetch(`${this.UrlTypeSearch}${inputData}`)
-          .then((response) => response.json())
-          .then((data) => {
-            this.isFetchUserLoading = false;
-            this.userData = data;
-          });
+        if (this.timer) {
+          clearTimeout(this.timer);
+          this.timer = null;
+        }
+        this.timer = setTimeout(() => {
+          fetch(`${this.UrlTypeSearch}${inputData}`, header)
+            .then((response) => response.json())
+            .then((data) => {
+              this.isFetchUserLoading = false;
+              this.userData = data;
+              this.pagination.page = 1;
+            });
+        }, 800);
       }
       if (inputData.length === 0) {
         this.clearData();
@@ -175,15 +238,76 @@ export default {
       (this.userName = ""),
         (this.isFetchUserLoading = false),
         (this.userData = []);
+      this.pagination = {
+        page: 1,
+        pageCount: 0,
+      };
+    },
+    handleFlowers(followers) {
+      this.followersData.isLoading = true;
+      fetch(`${followers}`)
+        .then((response) => response.json())
+        .then((data) => {
+          this.followersData.isLoading = false;
+          this.followersData.followers = data;
+        });
+    },
+    handleSubscription(subscription) {
+      this.subscriptionsData.isLoading = true;
+      fetch(`${subscription}`)
+        .then((response) => response.json())
+        .then((data) => {
+          this.subscriptionsData.isLoading = false;
+          this.subscriptionsData.subscriptions = data;
+        });
+    },
+    handleOrgs(org) {
+      this.orgsData.isLoading = true;
+      fetch(`${org}`)
+        .then((response) => response.json())
+        .then((data) => {
+          this.orgsData.isLoading = false;
+          this.orgsData.orgs = data;
+        });
+    },
+    handleRepositories(repo) {
+      this.repositoriesData.isLoading = true;
+      fetch(`${repo}`)
+        .then((response) => response.json())
+        .then((data) => {
+          this.repositoriesData.isLoading = false;
+          this.repositoriesData.repos = data;
+        });
+    },
+    handleContributors(contributors) {
+      this.contributorsData.isLoading = true;
+      fetch(`${contributors}`)
+        .then((response) => response.json())
+        .then((data) => {
+          this.contributorsData.isLoading = false;
+          this.contributorsData.contributors = data;
+        });
+    },
+    handleSubscribers(subscriptions) {
+      this.subscriptionsRepoData.isLoading = true;
+      fetch(`${subscriptions}`)
+        .then((response) => response.json())
+        .then((data) => {
+          this.subscriptionsRepoData.isLoading = false;
+          this.subscriptionsRepoData.subscriptions = data;
+        });
+    },
+    handleTags(tag) {
+      this.tagsData.isLoading = true;
+      fetch(`${tag}`)
+        .then((response) => response.json())
+        .then((data) => {
+          this.tagsData.isLoading = false;
+          this.tagsData.tags = data;
+        });
     },
   },
   computed: {
-    userExist() {
-      if (this.userData.message && this.userData.message === "Not Found") {
-        return false;
-      }
-      return true;
-    },
     isUserDataEmpty() {
       if (Object.entries(this.userData).length === 0) return true;
       return false;
@@ -197,8 +321,6 @@ export default {
       if (this.typeSearch === "users") {
         return "https://api.github.com/search/users?q=";
       }
-      // if (this.typeSearch === "repos") {
-      //   }
       return "https://api.github.com/search/repositories?q=";
     },
   },

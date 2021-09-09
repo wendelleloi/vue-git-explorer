@@ -1,10 +1,10 @@
 <template>
   <div id="app">
-    <NavBar />
-    <!-- <div id="nav">
-      <router-link to="/">Home</router-link> |
-      <router-link to="/about">About</router-link>
-    </div> -->
+    <NavBar
+      v-if="['Home', 'userDetail'].includes($route.name)"
+      :isUserDetailsView="['userDetail'].includes($route.name)"
+      :isAuthenticated="$auth.isAuthenticated"
+    />
     <router-view />
   </div>
 </template>
@@ -25,6 +25,13 @@ export default {
   --color-bg-primary: #0d1117;
   --color-border-primary: #30363d;
   --color-green-primary: #42b983;
+  --color-header-bg: #161b22;
+  --color-header-text: rgba(240, 246, 252, 0.7);
+  --color-text-primary: #c9d1d9;
+  --color-bg-canvas: #0d1117;
+  --color-text-secondary: #8b949e;
+  --color-border-primary: #30363d;
+  --color-avatar-border: rgba(240, 246, 252, 0.1);
 }
 body {
   padding: 0;

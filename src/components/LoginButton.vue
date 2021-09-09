@@ -1,9 +1,6 @@
 <template>
-  <button
-    class="btn btn-primary btn-block"
-    v-if="!$auth.isAuthenticated"
-    @click="login"
-  >
+  <button class="btn btn-primary btn-block" @click="$emit('onClick')">
+    <!-- v-if="!$auth.isAuthenticated" -->
     Log In
   </button>
 </template>
